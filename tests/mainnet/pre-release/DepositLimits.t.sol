@@ -55,7 +55,7 @@ contract DepositLimits is VaultTestCommon, TestHelpers {
     setMaximalTotalSupply(vault.totalSupply(), true);
   }
 
-  function testFuzz_DepositLimitWithPositiveRebase(int256 deltaBP) external {
+  function testFuzz_DepositLimitWithRebase(int256 deltaBP) external {
     vm.assume(deltaBP > -1000 && deltaBP < 1000 );
 
     initVault();
