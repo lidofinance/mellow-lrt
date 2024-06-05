@@ -44,6 +44,9 @@ contract Withdrawal is TestHelpers {
     function testPreconditions() public view {
         DeploymentConfiguration memory config = deploymentConfigurations[0];
         assertEq(_WSTETH.balanceOf(config.wstethDefaultBond) - bondContractBalance, depositWstethAmount);
+        (, uint256[] memory amounts) = vault.underlyingTvl();
+        assertApproxEqAbs(depositWstethAmount, lpAmount * amounts[0] / vault.totalSupply(), 1);
+
         assertEq(vault.balanceOf(depositor), lpAmount);
     }
 
@@ -75,12 +78,13 @@ contract Withdrawal is TestHelpers {
             assertEq(withdrawers[withdrawers.length - 1], depositor);
         }
 
-        (bool isProcessingPossible,,uint256[] memory expectedAmounts) = vault
+        (bool isProcessingPossible, bool isWithdrawalsPossible, uint256[] memory expectedAmounts) = vault
             .analyzeRequest(
                 vault.calculateStack(),
                 vault.withdrawalRequest(depositor)
             );
         assertTrue(isProcessingPossible);
+        assertFalse(isWithdrawalsPossible);
         assertApproxEqAbs(expectedAmounts[0], depositWstethAmount, 1);
 
         vm.startPrank(config.curator);
