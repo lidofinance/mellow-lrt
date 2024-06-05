@@ -7,6 +7,13 @@ import  "../../../scripts/mainnet/DeployInterfaces.sol";
 import "../../../src/interfaces/external/lido/IWeth.sol";
 import "../../../src/interfaces/modules/symbiotic/IDefaultBondModule.sol";
 
+interface stETH is ISteth, IERC20 {
+    function DEPOSIT_SIZE() external view returns (uint256);
+}
+
+interface wstETH is IWSteth, IERC20 {
+}
+
 struct DeploymentConfiguration {
         Vault vault; // TransparantUpgradeableProxy
         IVaultConfigurator configurator;
@@ -43,13 +50,13 @@ struct DeploymentConfiguration {
 contract MainnetTestBlueprint is Test{
     DeploymentConfiguration[] deploymentConfigurations;
 
-    ISteth immutable _STETH;
-    IWSteth immutable _WSTETH;
+    stETH immutable _STETH;
+    wstETH immutable _WSTETH;
     IWeth immutable _WETH;
 
     constructor() {
-        _STETH = ISteth(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
-        _WSTETH = IWSteth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+        _STETH = stETH(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+        _WSTETH = wstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
         _WETH = IWeth(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
         // Steakhouse Vault (test)
@@ -83,7 +90,7 @@ contract MainnetTestBlueprint is Test{
                 IAggregatorV3(0x773ae8ca45D5701131CA84C58821a39DdAdC709c),
                 DefaultProxyImplementation(0x538459eeA06A06018C70bf9794e1c7b298694828),
                 0x638113B8941327E4B0213Eefcb1319EC664DFD16
-            )   
+            )
         );
         // Re7 Labs LRT (test)
         deploymentConfigurations.push(DeploymentConfiguration(
@@ -116,7 +123,7 @@ contract MainnetTestBlueprint is Test{
                 IAggregatorV3(0x773ae8ca45D5701131CA84C58821a39DdAdC709c),
                 DefaultProxyImplementation(0x538459eeA06A06018C70bf9794e1c7b298694828),
                 0x3C6b61a0CFEE415F1Ebc11b095090b9fb21FAcC6
-            )   
+            )
         );
 
         // MEVcap ETH (test)
@@ -150,14 +157,13 @@ contract MainnetTestBlueprint is Test{
                 IAggregatorV3(0x773ae8ca45D5701131CA84C58821a39DdAdC709c),
                 DefaultProxyImplementation(0x538459eeA06A06018C70bf9794e1c7b298694828),
                 0xaD09f49E43237f02Ad8b037805243fFb635Da796
-            )   
+            )
         );
     }
 }
 
 
 contract TestHelpers is MainnetTestBlueprint {
-
     uint256 public constant Q96 = 2 ** 96;
 
     function calculateLPAmount(uint256 depositAmount, DeploymentConfiguration memory config) public view returns (uint256 lpAmount) {
