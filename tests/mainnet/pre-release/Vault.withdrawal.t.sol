@@ -3,13 +3,13 @@
 pragma solidity 0.8.25;
 
 
-import {MainnetTestBlueprint, DeploymentConfiguration} from "./MainnetTestBlueprint.sol";
+import {TestHelpers, DeploymentConfiguration} from "./MainnetTestBlueprint.sol";
 import {Vault} from "src/Vault.sol";
 import "src/interfaces/IVault.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Withdrawal is  MainnetTestBlueprint {
+contract Withdrawal is TestHelpers {
     Vault public vault;
 
     address depositor = address(bytes20(keccak256("depositor1")));
@@ -64,10 +64,10 @@ contract Withdrawal is  MainnetTestBlueprint {
                 type(uint256).max,
                 true
             );
-            // vm.expectEmit(true, true, false, false, address(vault));
-            // emit IVault.WithdrawalRequested(depositor, vault.withdrawalRequest(depositor));
         }
         vm.stopPrank();
+
+        rebase(10);
 
         {
             address[] memory withdrawers = vault.pendingWithdrawers();
@@ -75,23 +75,25 @@ contract Withdrawal is  MainnetTestBlueprint {
             assertEq(withdrawers[withdrawers.length - 1], depositor);
         }
 
-        (bool isProcessingPossible, bool isWithdrawalPossible, ) = vault
+        (bool isProcessingPossible,,uint256[] memory expectedAmounts) = vault
             .analyzeRequest(
                 vault.calculateStack(),
                 vault.withdrawalRequest(depositor)
             );
         assertTrue(isProcessingPossible);
+        assertApproxEqAbs(expectedAmounts[0], depositWstethAmount, 1);
 
         vm.startPrank(config.curator);
-        address[] memory users = new address[](1);
-        users[0] = depositor;
-        config.defaultBondStrategy.processWithdrawals(users);
         {
+            address[] memory users = new address[](1);
+            users[0] = depositor;
+            config.defaultBondStrategy.processWithdrawals(users);
+
             address[] memory withdrawers = vault.pendingWithdrawers();
             assertEq(withdrawers.length, withdrawersLength);
 
-            assertEq(_WSTETH.balanceOf(depositor), depositWstethAmount - 1);
-            assertEq(_WSTETH.balanceOf(config.wstethDefaultBond), bondContractBalance + 1); // !! dust
+            assertApproxEqAbs(_WSTETH.balanceOf(depositor), depositWstethAmount, 1);
+            assertApproxEqAbs(_WSTETH.balanceOf(config.wstethDefaultBond), bondContractBalance, 1);
         }
         vm.stopPrank();
     }
