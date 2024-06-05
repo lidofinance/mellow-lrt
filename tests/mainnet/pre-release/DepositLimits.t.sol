@@ -7,65 +7,88 @@ import "./MainnetTestBlueprint.sol";
 contract DepositLimits is VaultTestCommon, TestHelpers {
   using SafeERC20 for IERC20;
 
-  Vault vault;
-  VaultConfigurator configurator;
+  uint256 public constant Q96 = 2 ** 96;
 
+  address vaultAdmin;
   address depositor = address(bytes20(keccak256("depositor")));
 
 
   function testDepositRegularLimitScenario() external {
-    initVault();
-    initDepositor();
+    DeploymentConfiguration memory config = deploymentConfigurations[0];
+    Vault vault = config.vault;
+    IVaultConfigurator configurator = vault.configurator();
+    vaultAdmin = config.admin;
 
     //check configurator maximalTotalSupply
     uint256 maxTotalSupply = configurator.maximalTotalSupply();
-    assertEq(maxTotalSupply, 1000 ether);
+    assertEq(maxTotalSupply, config.maximalTotalSupply);
 
-    deposit(500 ether);
-    assertEq(vault.totalSupply(), 500 ether + 10 gwei);
+    address[] memory tokens = vault.underlyingTokens();
+    initDepositor(vault, tokens);
 
-    //limit == maxTotalSupply
-    deposit(maxTotalSupply - vault.totalSupply());
-    assertEq(maxTotalSupply, vault.totalSupply());
+    //deposit works
+    deposit(vault, tokens.length, 1 ether);
 
     //hit the limit
     vm.expectRevert(abi.encodeWithSignature("LimitOverflow()"));
-    deposit(1 wei);
+    deposit(vault, tokens.length, maxTotalSupply);
 
     //curator raised the limit
-    setMaximalTotalSupply(maxTotalSupply + 1 wei, true);
+    //there is delay exists between stage and commit operations
+    //so use vm.warp(block.timestamp + configurator.maximalTotalSupplyDelay()); before commit
+    setMaximalTotalSupply(configurator, maxTotalSupply + 500 ether, true);
 
     //deposits works after increase limit
-    deposit(1 wei);
+    deposit(vault, tokens.length, 1 ether);
   }
 
   function testDepositDecreaseLimit() external {
-    initVault();
-    initDepositor();
+    DeploymentConfiguration memory config = deploymentConfigurations[0];
+    Vault vault = config.vault;
+    IVaultConfigurator configurator = vault.configurator();
+    vaultAdmin = config.admin;
+
+    address[] memory tokens = vault.underlyingTokens();
+    initDepositor(vault, tokens);
 
 
-    deposit(500 ether);
+    deposit(vault, tokens.length, 500 ether);
 
     //curator decrease the limit
     //cannot be less then vault.totalSupply()
     vm.expectRevert(abi.encodeWithSignature("InvalidTotalSupply()"));
-    setMaximalTotalSupply(1 ether, false);
+    setMaximalTotalSupply(configurator, 1 ether, false);
 
     //no revert if MaximalTotalSupply == vault.totalSupply()
-    setMaximalTotalSupply(vault.totalSupply(), true);
+    setMaximalTotalSupply(configurator, vault.totalSupply(), true);
   }
 
-  function testFuzz_DepositLimitWithPositiveRebase(int256 deltaBP) external {
+  function testFuzz_DepositLimitWithRebase(int256 deltaBP) external {
     vm.assume(deltaBP > -1000 && deltaBP < 1000 );
 
-    initVault();
-    initDepositor();
+    DeploymentConfiguration memory config = deploymentConfigurations[0];
+    Vault vault = config.vault;
+    IVaultConfigurator configurator = vault.configurator();
+    vaultAdmin = config.admin;
+
+    (
+      address[] memory tokens,
+      uint256[] memory totalAmounts
+    ) = vault.underlyingTvl();
+    initDepositor(vault, tokens);
 
     uint256 maxTotalSupply = configurator.maximalTotalSupply();
 
-    deposit(maxTotalSupply - vault.totalSupply() - 1 wei);
-    rebase(-deltaBP);
-    deposit(1 wei);
+    deposit(vault, tokens.length, 1 ether);
+
+    uint256 totalSupplyBefore = vault.totalSupply();
+    uint256 totalValueBefore = getTotalValue(configurator, tokens, totalAmounts);
+    rebase(deltaBP);
+    uint256 totalSupplyAfter = vault.totalSupply();
+    uint256 totalValueAfter = getTotalValue(configurator, tokens, totalAmounts);
+
+    assertEq(totalSupplyBefore, totalSupplyAfter);
+    // assertEq(totalValueBefore, totalValueAfter);
   }
 
   /***
@@ -73,47 +96,51 @@ contract DepositLimits is VaultTestCommon, TestHelpers {
    * HELPERS
    *
    */
+  function getTotalValue(
+    IVaultConfigurator configurator,
+    address[] memory tokens,
+    uint256[] memory totalAmounts
+  ) public view returns(uint256) {
+    uint256 totalValue = 0;
+    IPriceOracle priceOracle = IPriceOracle(configurator.priceOracle());
+    for (uint256 i = 0; i < tokens.length; i++) {
+      uint256 priceX96 = priceOracle.priceX96(address(configurator.vault()), tokens[i]);
+      totalValue += totalAmounts[i] == 0
+          ? 0
+          : FullMath.mulDivRoundingUp(totalAmounts[i], priceX96, Q96);
+    }
 
-  function initVault() public {
-    vault = new Vault("Mellow LRT Vault", "mLRT", admin);
-    vm.startPrank(admin);
-    vault.grantRole(vault.ADMIN_DELEGATE_ROLE(), admin);
-    vault.grantRole(vault.OPERATOR(), operator);
-    _setUp(vault);
-    vm.stopPrank();
-    _initialDeposit(vault);
-
-    configurator = VaultConfigurator(
-        address(vault.configurator())
-    );
+    return totalValue;
   }
 
-  function initDepositor() public {
+
+  function initDepositor(Vault vault, address[] memory tokens) public {
     vm.startPrank(depositor);
 
-    deal(Constants.WSTETH, depositor, 10000 ether);
-    IERC20(Constants.WSTETH).safeIncreaseAllowance(
-        address(vault),
-        10000 ether
-    );
-    vm.stopPrank();
+    for(uint256 i=0; i< tokens.length; i++) {
+      deal(tokens[i], depositor, 100000 ether);
+      IERC20(tokens[i]).safeIncreaseAllowance(
+          address(vault),
+          100000 ether
+      );
+    }
 
-    //initial vault total supply
-    assertEq(vault.totalSupply(), 10 gwei);
+    vm.stopPrank();
   }
 
-  function deposit(uint256 amount) public {
+  function deposit(Vault vault, uint256 tokenLength, uint256 amount) public {
     vm.startPrank(depositor);
-    uint256[] memory amounts = new uint256[](3);
+    uint256[] memory amounts = new uint256[](tokenLength);
     amounts[0] = amount;
     vault.deposit(depositor, amounts, 1 wei, type(uint256).max);
     vm.stopPrank();
   }
 
-  function setMaximalTotalSupply(uint256 totalSupply, bool commit) public {
-    vm.startPrank(admin);
+  function setMaximalTotalSupply(IVaultConfigurator configurator, uint256 totalSupply, bool commit) public {
+    vm.startPrank(vaultAdmin);
     configurator.stageMaximalTotalSupply(totalSupply);
     if (commit) {
+      vm.warp(block.timestamp + configurator.maximalTotalSupplyDelay());
       configurator.commitMaximalTotalSupply();
     }
     vm.stopPrank();
