@@ -160,6 +160,18 @@ contract Collector is DefaultAccessControl {
         for (uint256 i = 0; i < users.length; i++) {
             responses[i] = collect(users[i], vaults);
         }
+
+        return mergeWithDefiCollectors(user, vaults, responses);
+    }
+
+    function multiCollect(
+        address[] memory users,
+        address[] memory vaults
+    ) external view returns (Response[][] memory responses) {
+        responses = new Response[][](users.length);
+        for (uint256 i = 0; i < users.length; i++) {
+            responses[i] = collect(users[i], vaults);
+        }
     }
 
     function fetchWithdrawalAmounts(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL-1.1
 pragma solidity 0.8.25;
 
-import "../Constants.sol";
+import "./Imports.sol";
 import "./DeployConstants.sol";
 
 library DeployLibrary {
@@ -36,13 +36,8 @@ library DeployLibrary {
         ChainlinkOracle priceOracle;
         DefaultBondStrategy defaultBondStrategy;
         DepositWrapper depositWrapper;
-        DefaultProxyImplementation defaultProxyImplementation;
-        AdminProxy adminProxy;
-        RestrictingKeeper restrictingKeeper;
         IAggregatorV3 wethAggregatorV3;
         IAggregatorV3 wstethAggregatorV3;
         uint256 wstethAmountDeposited;
     }
-
-    function test() external pure {}
 }

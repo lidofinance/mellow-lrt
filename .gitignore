@@ -112,3 +112,4 @@ out/
 
 # foundry magic
 /src/tmp
+.idea
