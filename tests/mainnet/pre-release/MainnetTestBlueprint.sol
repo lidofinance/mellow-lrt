@@ -168,6 +168,7 @@ contract MainnetTestBlueprint is Test{
 
 
 contract TestHelpers is MainnetTestBlueprint {
+    using VaultLib for Vault;
     uint256 public constant Q96 = 2 ** 96;
 
     function calculateLPAmount(uint256 depositAmount, DeploymentConfiguration memory config) public view returns (uint256 lpAmount) {
@@ -188,5 +189,51 @@ contract TestHelpers is MainnetTestBlueprint {
         assertEq(
             uint256(int256(totalSupply) * deltaBP / 10000 + int256(totalSupply)), _STETH.totalSupply(), "total supply"
         );
+    }
+
+    function assignWstETH(address to, uint256 amountOfEth) public returns(uint256 wstETHAmount){
+        vm.deal(to, amountOfEth);
+        vm.startPrank(to);
+        _STETH.submit{value: amountOfEth}(address(0));
+        _STETH.approve(address(_WSTETH), type(uint256).max);
+        wstETHAmount = _WSTETH.wrap(amountOfEth);
+        vm.stopPrank();
+    }
+
+    function sum(uint256[] memory array) public pure returns (uint256 res) {
+        for (uint256 i = 0; i < array.length; ++i) {
+            res += array[i];
+        }
+    }
+}
+
+library VaultLib {
+    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    stETH constant _STETH = stETH(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    wstETH constant _WSTETH = wstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+
+    function deposit(Vault vault, address from , uint256 wstETHAmount) public returns (uint256 lpAmount) {
+        vm.startPrank(from);
+        _WSTETH.approve(address(vault), type(uint256).max);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wstETHAmount;
+
+        (, lpAmount) = vault.deposit(from, amounts, wstETHAmount, type(uint256).max);
+        vm.stopPrank();
+    }
+
+    function withdrawal(Vault vault, address owner, uint256 lpAmount, uint256 minAmount) public {
+        vm.startPrank(owner);
+            uint256[] memory minAmounts = new uint256[](1);
+            minAmounts[0] = minAmount; //! dust
+            vault.registerWithdrawal(
+                owner,
+                lpAmount,
+                minAmounts,
+                type(uint256).max,
+                type(uint256).max,
+                true
+            );
+        vm.stopPrank();
     }
 }
