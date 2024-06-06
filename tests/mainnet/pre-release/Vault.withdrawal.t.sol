@@ -9,19 +9,22 @@ import "src/interfaces/IVault.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Withdrawal is TestHelpers {
+contract WithdrawalSteakhouse is TestHelpers {
     Vault public vault;
 
     address depositor = address(bytes20(keccak256("depositor1")));
+
     uint256 bondContractBalance = 0;
     uint256 depositWstethAmount = 0;
     uint256 lpAmount = 0;
 
-    function setUp() public {
-        DeploymentConfiguration memory config = deploymentConfigurations[0];
+    function CONFIG() public view virtual returns (DeploymentConfiguration memory) {
+        return deploymentConfigurations[uint256(Deploy.STEAKHOUSE)];
+    }
 
-        bondContractBalance = _WSTETH.balanceOf(config.wstethDefaultBond);
-        vault = Vault(config.vault);
+    function setUp() public {
+        bondContractBalance = _WSTETH.balanceOf(CONFIG().wstethDefaultBond);
+        vault = Vault(CONFIG().vault);
 
         uint256 amount = 10 ether;
         vm.deal(depositor, amount);
@@ -42,7 +45,7 @@ contract Withdrawal is TestHelpers {
     }
 
     function testPreconditions() public view {
-        DeploymentConfiguration memory config = deploymentConfigurations[0];
+        DeploymentConfiguration memory config = CONFIG();
         assertEq(_WSTETH.balanceOf(config.wstethDefaultBond) - bondContractBalance, depositWstethAmount);
         (, uint256[] memory amounts) = vault.underlyingTvl();
         assertApproxEqAbs(depositWstethAmount, lpAmount * amounts[0] / vault.totalSupply(), 1);
@@ -51,7 +54,7 @@ contract Withdrawal is TestHelpers {
     }
 
     function testSimpleWithdrawal() public {
-        DeploymentConfiguration memory config = deploymentConfigurations[0];
+        DeploymentConfiguration memory config = CONFIG();
         uint256[] memory minAmounts = new uint256[](1);
         minAmounts[0] = depositWstethAmount - 1; //! dust
 
@@ -100,5 +103,17 @@ contract Withdrawal is TestHelpers {
             assertApproxEqAbs(_WSTETH.balanceOf(config.wstethDefaultBond), bondContractBalance, 1);
         }
         vm.stopPrank();
+    }
+}
+
+contract WithdrawalRe7 is WithdrawalSteakhouse {
+    function CONFIG() public view override returns (DeploymentConfiguration memory) {
+        return deploymentConfigurations[uint256(Deploy.RE7)];
+    }
+}
+
+contract WithdrawalMevCap is WithdrawalSteakhouse {
+    function CONFIG() public view override returns (DeploymentConfiguration memory) {
+        return deploymentConfigurations[uint256(Deploy.MEVCAP)];
     }
 }

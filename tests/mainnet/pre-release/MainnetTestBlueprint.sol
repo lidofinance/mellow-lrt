@@ -48,6 +48,10 @@ struct DeploymentConfiguration {
 
 
 contract MainnetTestBlueprint is Test{
+    enum Deploy {
+        STEAKHOUSE, RE7, MEVCAP
+    }
+
     DeploymentConfiguration[] deploymentConfigurations;
 
     stETH immutable _STETH;
