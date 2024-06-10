@@ -10,12 +10,12 @@ contract AllRoundHappyPath is TestHelpers {
 
     function setUp() external {
         uint256 ethBalance = depositAmount;
-        vm.deal(DEPOSITOR, ethBalance * 10);
+        vm.deal(DEPOSITOR, ethBalance * 100);
 
         vm.startPrank(DEPOSITOR);
-        _STETH.submit{value: ethBalance * 2}(address(0));
+        _STETH.submit{value: ethBalance * 80}(address(0));
         IERC20(address(_STETH)).approve(address(_WSTETH), type(uint256).max);
-        _WSTETH.wrap(ethBalance * 2);
+        _WSTETH.wrap(ethBalance * 80);
         vm.stopPrank();
     }
 
@@ -61,8 +61,10 @@ contract AllRoundHappyPath is TestHelpers {
         assertApproxEqAbs(IERC20(address(_WSTETH)).balanceOf(DEPOSITOR), depositorWstethBalanceBefore, 2);
     }
 
-    function testFork_bondOverlimit() external {
-        DeploymentConfiguration memory config = deploymentConfigurations[4];
+    function bondOverlimit(DeploymentConfiguration memory config) public {
+        // Admin approve
+        vm.prank(config.admin);
+        config.defaultBondStrategy.processAll();
 
         uint256 bondLimit = 10 ether;
         uint256 depositOverLimit = bondLimit * 2;
@@ -87,16 +89,13 @@ contract AllRoundHappyPath is TestHelpers {
         emit IERC20.Approval(address(config.depositWrapper), address(config.vault), depositAmount);
         vm.expectEmit(address(_WSTETH));
         emit IERC20.Transfer(address(config.depositWrapper), address(config.vault), depositAmount);
-        // uint256 expectedLPAmount = calculateLPAmount(depositAmount, config);
-        // vm.expectEmit(address(config.vault));
-        // emit IERC20.Transfer(address(0), DEPOSITOR, expectedLPAmount);
-        // vm.expectEmit(address(config.vault));
-        // emit IVault.Deposit(DEPOSITOR, amounts, expectedLPAmount);
-        // vm.expectEmit(address(config.vault));
+
+        uint256 expectedLPAmount = calculateLPAmount(depositAmount, config);
 
         config.depositWrapper.deposit(DEPOSITOR, address(_WSTETH), depositAmount, 0, type(uint256).max);
         uint256 depositorWstethBalanceAfterDeposit = IERC20(address(_WSTETH)).balanceOf(DEPOSITOR);
-
+        assertApproxEqAbs(IERC20(config.vault).balanceOf(DEPOSITOR), expectedLPAmount, 100);
+        
         vm.store(config.wstethDefaultBond, LIMIT_POSITION, bytes32(type(uint256).max));
         assertEq(IDefaultBond(config.wstethDefaultBond).limit(), type(uint256).max);
 
@@ -117,8 +116,16 @@ contract AllRoundHappyPath is TestHelpers {
         uint256 expectedBondDeposit = data[0].amount + bondBalance;
         vm.expectEmit(address(_WSTETH));
         emit IERC20.Transfer(address(config.vault), address(config.wstethDefaultBond), expectedBondDeposit);
+
         // Admin approve
         vm.prank(config.admin);
         config.defaultBondStrategy.processAll();
+    }   
+
+
+    function testFork_bondOverlimit() external{
+        for (uint i = 0; i < deploymentConfigurations.length; ++i) {
+            bondOverlimit(deploymentConfigurations[i]);
+        }
     }
 }
