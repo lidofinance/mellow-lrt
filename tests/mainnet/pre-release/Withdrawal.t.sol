@@ -31,7 +31,7 @@ contract WithdrawalSteakhouse is TestHelpers {
         (, uint256[] memory amounts) = vault.underlyingTvl();
         underlyingTvl = amounts[0];
 
-        uint256 num = 12;
+        uint256 num = 100;
 
         depositors = new address[](num);
         lpAmounts = new uint256[](num);
@@ -40,6 +40,9 @@ contract WithdrawalSteakhouse is TestHelpers {
         for (uint256 i = 0; i < depositors.length; ++i) {
             depositors[i] = address(uint160(uint256(keccak256("depositor")) + i));
         }
+
+        bytes32 LIMIT_POSITION = bytes32(uint256(0x09));
+        vm.store(CONFIG().wstethDefaultBond, LIMIT_POSITION, bytes32(uint256(1 ether)));
 
         uint256 amount = 0.01 ether;
 
@@ -64,6 +67,8 @@ contract WithdrawalSteakhouse is TestHelpers {
         assertEq(vault.balanceOf(depositors[0]), lpAmounts[0]);
         assertEq(vault.balanceOf(depositors[1]), lpAmounts[1]);
         assertEq(vault.balanceOf(depositors[2]), lpAmounts[2]);
+
+        assertEq(IDefaultBond(CONFIG().wstethDefaultBond).limit(), 1 ether);
     }
 
     function testSimpleWithdrawal() public {
