@@ -200,6 +200,44 @@ contract WithdrawalSteakhouse is TestHelpers {
         vm.stopPrank();
     }
 
+    function testWithdrawalWithRebases() public {
+        DeploymentConfiguration memory config = CONFIG();
+        uint256 withdrawersLength = vault.pendingWithdrawers().length;
+
+        for (uint256 i = 0; i < depositors.length; ++i) {
+             vault.withdrawal(depositors[i], lpAmounts[i], deposits[i] - 3);
+        }
+
+        {
+            address[] memory withdrawers = vault.pendingWithdrawers();
+            assertEq(withdrawers.length, withdrawersLength + deposits.length);
+            for (uint256 i = 0; i < depositors.length; ++i) {
+                assertEq(withdrawers[withdrawers.length - 1 - i], depositors[depositors.length - 1 - i]);
+            }
+        }
+
+        vm.startPrank(config.curator);
+        uint256 vaultWstethBalanceAfter = vaultWstethBalance + sum(deposits);
+        for (uint256 i = 0; i < depositors.length; ++i) {
+            address[] memory users = new address[](1);
+            users[0] = depositors[i];
+            config.defaultBondStrategy.processWithdrawals(users);
+
+            address[] memory withdrawers = vault.pendingWithdrawers();
+            assertEq(withdrawers.length, withdrawersLength + (depositors.length - 1 - i));
+
+            vaultWstethBalanceAfter -= deposits[i];
+
+            assertApproxEqAbs(_WSTETH.balanceOf(depositors[i]), deposits[i], 4);
+            assertEqOrLess(vaultWstethBalanceAfter,
+                _WSTETH.balanceOf(config.wstethDefaultBond) + _WSTETH.balanceOf(address(vault)),
+                deposits.length * 2);
+
+            rebase(1);
+        }
+        vm.stopPrank();
+    }
+
     function assertEqOrLess(uint256 a, uint256 b, uint256 delta) public pure {
         vm.assertTrue(b >= a && b - a <= delta,
             string.concat("asssertEqOrLess: should be ", vm.toString(a), "<=", vm.toString(b)));
