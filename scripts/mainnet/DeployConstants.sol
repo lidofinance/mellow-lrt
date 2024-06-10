@@ -14,7 +14,7 @@ library DeployConstants {
 
     uint256 public constant INITIAL_DEPOSIT_ETH = 10 gwei;
     uint256 public constant FIRST_DEPOSIT_ETH = 1 ether;
-    uint256 public constant MAXIMAL_TOTAL_SUPPLY = 10_000 ether;
+    uint256 public constant MAXIMAL_TOTAL_SUPPLY = 10322.5 ether;
 
     address public constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -26,6 +26,8 @@ library DeployConstants {
         0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
     address public constant MAINNET_DEPLOYER =
+        0x188858AC61a74350116d1CB6958fBc509FD6afA1;
+    address public constant MAINNET_TEST_DEPLOYER =
         0x5C0F3DE4ba6AD53bb8E27f965170A52671e525Bf;
 
     address public constant MELLOW_LIDO_MULTISIG =
@@ -37,12 +39,12 @@ library DeployConstants {
         0x2afc096981c2CFe3501bE4054160048718F6C0C8;
     address public constant RE7_MULTISIG =
         0xE86399fE6d7007FdEcb08A2ee1434Ee677a04433;
-    address public constant MEV_MULTISIG =
+    address public constant AMPHOR_MULTISIG =
         0xA1E38210B06A05882a7e7Bfe167Cd67F07FA234A;
     address public constant P2P_MULTISIG =
         0x4a3c7F2470Aa00ebE6aE7cB1fAF95964b9de1eF4;
 
-    // ---------- Ethereum Mainnet (test) ----------
+    // ---------- Ethereum Mainnet ----------
 
     // Steakhouse
     string public constant STEAKHOUSE_VAULT_NAME =
@@ -53,9 +55,9 @@ library DeployConstants {
     string public constant RE7_VAULT_NAME = "Re7 Labs LRT";
     string public constant RE7_VAULT_SYMBOL = "Re7LRT";
 
-    // MEV
-    string public constant MEV_VAULT_NAME = "MEVcap ETH";
-    string public constant MEV_VAULT_SYMBOL = "mevcETH";
+    // Amphor
+    string public constant AMPHOR_VAULT_NAME = "Amphor Restaked ETH";
+    string public constant AMPHOR_VAULT_SYMBOL = "amphrETH";
 
     // P2P
     string public constant P2P_VAULT_NAME = "Restaking Vault ETH";

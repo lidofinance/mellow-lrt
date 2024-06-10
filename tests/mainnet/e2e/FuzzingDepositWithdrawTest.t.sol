@@ -10,13 +10,14 @@ contract FuzzingDepositWithdrawTest is DeployScript, Validator, Test {
     DeployInterfaces.DeploySetup setup;
 
     uint256 private seed;
-    // uint256 private constant userCount = 2;
-
     uint256 public constant MAX_USERS = 4;
     uint256 public constant MAX_ERROR_DEPOSIT = 4 wei;
     uint256 public constant Q96 = 2 ** 96;
 
     function setUp() public {
+        string memory rpc = vm.envString("MAINNET_RPC");
+        uint256 fork = vm.createFork(rpc, 20017905);
+        vm.selectFork(fork);
         seed = 0;
         address curator = DeployConstants.STEAKHOUSE_MULTISIG;
         string memory name = DeployConstants.STEAKHOUSE_VAULT_NAME;
