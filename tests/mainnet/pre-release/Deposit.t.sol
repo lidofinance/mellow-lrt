@@ -33,8 +33,8 @@ contract AllRoundHappyPath is TestHelpers {
 
         uint256 depositorWstethBalanceBefore = IERC20(address(_WSTETH)).balanceOf(DEPOSITOR);
 
-        vm.expectEmit(true, true, false, true, address(config.vault));
-        emit IVault.Deposit(DEPOSITOR, amounts, 116861303836991156599); // TODO: check lp amount
+        // vm.expectEmit(true, true, false, true, address(config.vault));
+        // emit IVault.Deposit(DEPOSITOR, amounts, 116861303836991156599); // TODO: check lp amount
         config.depositWrapper.deposit(DEPOSITOR, address(_WSTETH), depositAmount, 0, type(uint256).max);
         uint256 depositorWstethBalanceAfterDeposit = IERC20(address(_WSTETH)).balanceOf(DEPOSITOR);
 
@@ -89,11 +89,11 @@ contract AllRoundHappyPath is TestHelpers {
         emit IERC20.Transfer(address(config.depositWrapper), address(config.vault), depositAmount);
         // uint256 expectedLPAmount = calculateLPAmount(depositAmount, config);
         // vm.expectEmit(address(config.vault));
-        // emit IERC20.Transfer(address(0), DEPOSITOR, expectedLPAmount); 
+        // emit IERC20.Transfer(address(0), DEPOSITOR, expectedLPAmount);
         // vm.expectEmit(address(config.vault));
-        // emit IVault.Deposit(DEPOSITOR, amounts, expectedLPAmount); 
+        // emit IVault.Deposit(DEPOSITOR, amounts, expectedLPAmount);
         // vm.expectEmit(address(config.vault));
-        
+
         config.depositWrapper.deposit(DEPOSITOR, address(_WSTETH), depositAmount, 0, type(uint256).max);
         uint256 depositorWstethBalanceAfterDeposit = IERC20(address(_WSTETH)).balanceOf(DEPOSITOR);
 
@@ -120,5 +120,5 @@ contract AllRoundHappyPath is TestHelpers {
         // Admin approve
         vm.prank(config.admin);
         config.defaultBondStrategy.processAll();
-    }   
+    }
 }

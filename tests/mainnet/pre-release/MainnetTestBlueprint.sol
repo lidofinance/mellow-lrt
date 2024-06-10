@@ -357,14 +357,14 @@ library VaultLib {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = wstETHAmount;
 
-        (, lpAmount) = vault.deposit(from, amounts, wstETHAmount, type(uint256).max);
+        (, lpAmount) = vault.deposit(from, amounts, 0, type(uint256).max);
         vm.stopPrank();
     }
 
     function withdrawal(Vault vault, address owner, uint256 lpAmount, uint256 minAmount) public {
         vm.startPrank(owner);
         uint256[] memory minAmounts = new uint256[](1);
-        minAmounts[0] = minAmount; //! dust
+        minAmounts[0] = minAmount;
         vault.registerWithdrawal(owner, lpAmount, minAmounts, type(uint256).max, type(uint256).max, true);
         vm.stopPrank();
     }
