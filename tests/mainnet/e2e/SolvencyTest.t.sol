@@ -48,7 +48,7 @@ abstract contract SolvencyTest is DeployScript, Validator, EventValidator, Test 
 
     function setUp() public {
         string memory rpc = vm.envString("MAINNET_RPC");
-        uint256 fork = vm.createFork(rpc, 20046940);
+        uint256 fork = vm.createFork(rpc, 20067175);
         vm.selectFork(fork);
 
         deployParams = DeployInterfaces.DeployParameters({
@@ -653,12 +653,11 @@ contract SolvencyTestSTEAKHOUSE is SolvencyTest {
             defaultBondStrategy: DefaultBondStrategy(address(0x7a14b34a9a8EA235C66528dc3bF3aeFC36DFc268)),
             proxyAdmin: ProxyAdmin(address(0xed792a3fDEB9044C70c951260AaAe974Fb3dB38F)),
             validator: ManagedValidator(address(0xdB66693845a3f72e932631080Efb1A86536D0EA7)),
-            wstethAmountDeposited: 8554034897,
+            wstethAmountDeposited: IERC20(DeployConstants.WSTETH).balanceOf(0xBEEF69Ac7870777598A04B2bd4771c71212E6aBc),
             curator: DeployConstants.STEAKHOUSE_MULTISIG,
             lpTokenName: DeployConstants.STEAKHOUSE_VAULT_NAME,
             lpTokenSymbol: DeployConstants.STEAKHOUSE_VAULT_SYMBOL
         });
-        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
     }
 }
 contract SolvencyTestRE7 is SolvencyTest {
@@ -670,12 +669,11 @@ contract SolvencyTestRE7 is SolvencyTest {
             defaultBondStrategy: DefaultBondStrategy(address(0xcE3A8820265AD186E8C1CeAED16ae97176D020bA)),
             proxyAdmin: ProxyAdmin(address(0xF076CF343DCfD01BBA57dFEB5C74F7B015951fcF)),
             validator: ManagedValidator(address(0x0483B89F632596B24426703E540e373083928a6A)),
-            wstethAmountDeposited: 8554034897,
+            wstethAmountDeposited: IERC20(DeployConstants.WSTETH).balanceOf(0x84631c0d0081FDe56DeB72F6DE77abBbF6A9f93a),
             curator: DeployConstants.RE7_MULTISIG,
             lpTokenName: DeployConstants.RE7_VAULT_NAME,
             lpTokenSymbol: DeployConstants.RE7_VAULT_SYMBOL
         });
-        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
     }
 }
 contract SolvencyTestAMPHOR is SolvencyTest {
@@ -687,12 +685,11 @@ contract SolvencyTestAMPHOR is SolvencyTest {
             defaultBondStrategy: DefaultBondStrategy(address(0xc3A149b5Ca3f4A5F17F5d865c14AA9DBb570F10A)),
             proxyAdmin: ProxyAdmin(address(0xc24891B75ef55fedC377c5e6Ec59A850b12E23ac)),
             validator: ManagedValidator(address(0xD2635fa0635126bAfdD430b9614c0280d37a76CA)),
-            wstethAmountDeposited: 8554034897,
+            wstethAmountDeposited: IERC20(DeployConstants.WSTETH).balanceOf(0x5fD13359Ba15A84B76f7F87568309040176167cd),
             curator: DeployConstants.AMPHOR_MULTISIG,
             lpTokenName: DeployConstants.AMPHOR_VAULT_NAME,
             lpTokenSymbol: DeployConstants.AMPHOR_VAULT_SYMBOL
         });
-        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
     }
 }
 contract SolvencyTestMEVCAP is SolvencyTest {
@@ -704,11 +701,10 @@ contract SolvencyTestMEVCAP is SolvencyTest {
             defaultBondStrategy: DefaultBondStrategy(address(0xA0ea6d4fe369104eD4cc18951B95C3a43573C0F6)),
             proxyAdmin: ProxyAdmin(address(0x17AC6A90eD880F9cE54bB63DAb071F2BD3FE3772)),
             validator: ManagedValidator(address(0x6AB116ac709c89D90Cc1F8cD0323617A9996bA7c)),
-            wstethAmountDeposited: 8554034897,
+            wstethAmountDeposited: IERC20(DeployConstants.WSTETH).balanceOf(0x7a4EffD87C2f3C55CA251080b1343b605f327E3a),
             curator: DeployConstants.P2P_MULTISIG,
             lpTokenName: DeployConstants.P2P_VAULT_NAME,
             lpTokenSymbol: DeployConstants.P2P_VAULT_SYMBOL
         });
-        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
     }
 }
