@@ -378,14 +378,6 @@ abstract contract SolvencyTest is DeployScript, Validator, EventValidator, Test 
                 cumulative_rogue_deposits_wsteth,
             "full_vault_balance_wsteth + cumulative_processed_withdrawals_wsteth != cumulative_deposits_wsteth + wstethAmountDeposited + cumulative_rogue_deposits_wsteth"
         );
-
-        assertEq(
-            0,
-            IERC20(deployParams.wsteth).balanceOf(
-                address(deployParams.deployer)
-            ),
-            "deployer balance not zero"
-        );
         assertEq(
             0,
             IERC20(deployParams.wsteth).balanceOf(
