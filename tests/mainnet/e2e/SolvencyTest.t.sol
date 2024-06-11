@@ -3,12 +3,34 @@ pragma solidity 0.8.25;
 
 import "../../../scripts/mainnet/Deploy.s.sol";
 
-contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
+struct DeploySetupExt {
+    Vault vault; // TransparantUpgradeableProxy
+    IVaultConfigurator configurator;
+    ManagedValidator validator;
+    DefaultBondStrategy defaultBondStrategy;
+    DepositWrapper depositWrapper;
+    ProxyAdmin proxyAdmin;
+    uint256 wstethAmountDeposited;
+    address curator;
+    string lpTokenName;
+    string lpTokenSymbol;
+}
+abstract contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
     using SafeERC20 for IERC20;
     using stdStorage for StdStorage;
+    
+    enum Deployments {
+        STEAKHOUSE,
+        RE7,
+        AMPHOR,
+        MEVCAP
+    }
 
     DeployInterfaces.DeployParameters private deployParams;
-    DeployInterfaces.DeploySetup private setup;
+
+    DeploySetupExt[] internal setups;
+    DeploySetupExt internal setup;
+    uint256 internal setupIdx;
 
     uint256 private seed;
 
@@ -26,57 +48,35 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
 
     function setUp() public {
         string memory rpc = vm.envString("MAINNET_RPC");
-        uint256 fork = vm.createFork(rpc, 20017905);
+        uint256 fork = vm.createFork(rpc, 20046940);
         vm.selectFork(fork);
-    }
 
-    function deployVault(uint256 symbioticLimit, uint256 mellowLimit) public {
-        seed = 0;
-        address curator = DeployConstants.STEAKHOUSE_MULTISIG;
-        string memory name = DeployConstants.STEAKHOUSE_VAULT_NAME;
-        string memory symbol = DeployConstants.STEAKHOUSE_VAULT_SYMBOL;
-
-        deployParams.deployer = DeployConstants.MAINNET_DEPLOYER;
-        vm.startPrank(deployParams.deployer);
-
-        deployParams.proxyAdmin = DeployConstants.MELLOW_LIDO_PROXY_MULTISIG;
-        deployParams.admin = DeployConstants.MELLOW_LIDO_MULTISIG;
-
-        deployParams.wstethDefaultBondFactory = DeployConstants
-            .WSTETH_DEFAULT_BOND_FACTORY;
-        deployParams.wstethDefaultBond = IDefaultCollateralFactory(
-            deployParams.wstethDefaultBondFactory
-        ).create(DeployConstants.WSTETH, symbioticLimit, address(0));
-
-        deployParams.wsteth = DeployConstants.WSTETH;
-        deployParams.steth = DeployConstants.STETH;
-        deployParams.weth = DeployConstants.WETH;
-
-        deployParams.initialDepositETH =
-            DeployConstants.INITIAL_DEPOSIT_ETH +
-            DeployConstants.FIRST_DEPOSIT_ETH;
-        deployParams.firstDepositETH = 0;
-        deployParams = commonContractsDeploy(deployParams);
-        deployParams.curator = curator;
-        deployParams.lpTokenName = name;
-        deployParams.lpTokenSymbol = symbol;
-
-        deal(
-            deployParams.deployer,
-            deployParams.initialDepositETH + deployParams.firstDepositETH
-        );
-        uint256 minRequiredTotalSupply = IWSteth(deployParams.wsteth)
-            .getWstETHByStETH(deployParams.deployer.balance) + 1 wei;
-        deployParams.maximalTotalSupply = Math.max(
-            mellowLimit,
-            minRequiredTotalSupply
-        );
-
-        vm.recordLogs();
-        (deployParams, setup) = deploy(deployParams);
-        validateParameters(deployParams, setup, 0);
-        validateEvents(deployParams, setup, vm.getRecordedLogs());
-        vm.stopPrank();
+        deployParams = DeployInterfaces.DeployParameters({
+            deployer: DeployConstants.MAINNET_DEPLOYER,
+            proxyAdmin: DeployConstants.MELLOW_LIDO_PROXY_MULTISIG,
+            admin: DeployConstants.MELLOW_LIDO_MULTISIG,
+            curator: address(0),
+            lpTokenName: "",
+            lpTokenSymbol: "",
+            wstethDefaultBond: DeployConstants.WSTETH_DEFAULT_BOND,
+            wstethDefaultBondFactory: DeployConstants.WSTETH_DEFAULT_BOND_FACTORY,
+            wsteth: DeployConstants.WSTETH,
+            steth: DeployConstants.STETH,
+            weth: DeployConstants.WETH,
+            maximalTotalSupply: DeployConstants.MAXIMAL_TOTAL_SUPPLY,
+            initialDepositETH: DeployConstants.INITIAL_DEPOSIT_ETH,
+            firstDepositETH: DeployConstants.FIRST_DEPOSIT_ETH,
+            initializer: Initializer(address(0x39c62c6308BeD7B0832CAfc2BeA0C0eDC7f2060c)),
+            initialImplementation: Vault(payable(address(0xaf108ae0AD8700ac41346aCb620e828c03BB8848))),
+            erc20TvlModule: ERC20TvlModule(address(0x1EB0e946D7d757d7b085b779a146427e40ABBCf8)),
+            defaultBondTvlModule: DefaultBondTvlModule(address(0x1E1d1eD64e4F5119F60BF38B322Da7ea5A395429)),
+            defaultBondModule: DefaultBondModule(address(0xD8619769fed318714d362BfF01CA98ac938Bdf9b)),
+            ratiosOracle: ManagedRatiosOracle(address(0x955Ff4Cc738cDC009d2903196d1c94C8Cfb4D55d)),
+            priceOracle: ChainlinkOracle(address(0x1Dc89c28e59d142688D65Bd7b22C4Fd40C2cC06d)),
+            wethAggregatorV3: IAggregatorV3(address(0x6A8d8033de46c68956CCeBA28Ba1766437FF840F)),
+            wstethAggregatorV3: IAggregatorV3(address(0x94336dF517036f2Bf5c620a1BC75a73A37b7bb16)),
+            defaultProxyImplementation: DefaultProxyImplementation(address(0x02BB349832c58E892a20178b9696e2b93A3a9b0f))
+        });
     }
 
     function _indexOf(address user) internal view returns (uint256) {
@@ -326,7 +326,7 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
             balances[i] = IERC20(deployParams.wsteth).balanceOf(withdrawers[i]);
         }
 
-        vm.prank(deployParams.curator);
+        vm.prank(setup.curator);
         setup.defaultBondStrategy.processWithdrawals(withdrawers);
 
         for (uint256 i = 0; i < withdrawers.length; i++) {
@@ -365,8 +365,8 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
             "totalSupply > maximalTotalSupply"
         );
 
-        uint256 full_vault_balance_wsteth = IERC20(deployParams.wsteth)
-            .balanceOf(address(setup.vault)) +
+        uint256 full_vault_balance_wsteth = 
+            IERC20(deployParams.wsteth).balanceOf(address(setup.vault)) +
             IERC20(deployParams.wstethDefaultBond).balanceOf(
                 address(setup.vault)
             );
@@ -401,7 +401,7 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
         assertEq(
             0,
             IERC20(deployParams.wsteth).balanceOf(
-                address(deployParams.curator)
+                address(setup.curator)
             ),
             "curator balance not zero"
         );
@@ -456,7 +456,7 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
                 address(setup.vault)
             );
 
-        vm.prank(deployParams.curator);
+        vm.prank(setup.curator);
         setup.defaultBondStrategy.processWithdrawals(depositors);
 
         for (uint256 i = 0; i < depositors.length; i++) {
@@ -545,7 +545,6 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
 
     function testSolvency() external {
         uint256 n = 1000; // n = 1000 -> used gas ~= 2**32, so if set higher, it will fail with OOG
-        deployVault(n * 1e6 ether, n * 1e6 ether);
         for (uint256 i = 0; i < n; i++) {
             transition_random_deposit();
             validate_invariants();
@@ -566,12 +565,9 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
 
     function testFuzz_SolvencyWithSetOfTransitions(
         uint8 n_,
-        uint256 symbioticLimit,
-        uint256 mellowLimit,
         uint8 testBitMask
     ) external {
         uint256 n = uint256(n_);
-        deployVault(symbioticLimit, mellowLimit);
         for (uint256 i = 0; i < n; i++) {
             if ((testBitMask >> 0) & 1 == 1) {
                 transition_random_deposit();
@@ -601,8 +597,6 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
     }
 
     function testFuzz_SolvencySequenceOfTransitions(
-        uint256 symbioticLimit,
-        uint256 mellowLimit,
         uint8[] memory sequence
     ) external {
         uint256 n = sequence.length;
@@ -625,7 +619,6 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
                 mstore(sequence, n)
             }
         }
-        deployVault(symbioticLimit, mellowLimit);
         for (uint256 i = 0; i < n; i++) {
             if (sequence[i] == 0) {
                 transition_random_deposit();
@@ -648,5 +641,74 @@ contract SolvencyTest is DeployScript, Validator, EventValidator, Test {
         finalize_test();
         validate_invariants();
         validate_final_invariants();
+    }
+}
+
+contract SolvencyTestSTEAKHOUSE is SolvencyTest {
+    constructor(){
+        setup = DeploySetupExt({
+            vault: Vault(payable(0xBEEF69Ac7870777598A04B2bd4771c71212E6aBc)),
+            configurator: VaultConfigurator(address(0xe6180599432767081beA7deB76057Ce5883e73Be)),
+            depositWrapper: DepositWrapper(payable(0x24fee15BC11fF617c042283B58A3Bda6441Da145)),
+            defaultBondStrategy: DefaultBondStrategy(address(0x7a14b34a9a8EA235C66528dc3bF3aeFC36DFc268)),
+            proxyAdmin: ProxyAdmin(address(0xed792a3fDEB9044C70c951260AaAe974Fb3dB38F)),
+            validator: ManagedValidator(address(0xdB66693845a3f72e932631080Efb1A86536D0EA7)),
+            wstethAmountDeposited: 8554034897,
+            curator: DeployConstants.STEAKHOUSE_MULTISIG,
+            lpTokenName: DeployConstants.STEAKHOUSE_VAULT_NAME,
+            lpTokenSymbol: DeployConstants.STEAKHOUSE_VAULT_SYMBOL
+        });
+        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
+    }
+}
+contract SolvencyTestRE7 is SolvencyTest {
+    constructor(){
+        setup = DeploySetupExt({
+            vault: Vault(payable(0x84631c0d0081FDe56DeB72F6DE77abBbF6A9f93a)),
+            configurator: VaultConfigurator(address(0x214d66d110060dA2848038CA0F7573486363cAe4)),
+            depositWrapper: DepositWrapper(payable(0x70cD3464A41B6692413a1Ba563b9D53955D5DE0d)),
+            defaultBondStrategy: DefaultBondStrategy(address(0xcE3A8820265AD186E8C1CeAED16ae97176D020bA)),
+            proxyAdmin: ProxyAdmin(address(0xF076CF343DCfD01BBA57dFEB5C74F7B015951fcF)),
+            validator: ManagedValidator(address(0x0483B89F632596B24426703E540e373083928a6A)),
+            wstethAmountDeposited: 8554034897,
+            curator: DeployConstants.RE7_MULTISIG,
+            lpTokenName: DeployConstants.RE7_VAULT_NAME,
+            lpTokenSymbol: DeployConstants.RE7_VAULT_SYMBOL
+        });
+        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
+    }
+}
+contract SolvencyTestAMPHOR is SolvencyTest {
+    constructor(){
+        setup = DeploySetupExt({
+            vault: Vault(payable(0x5fD13359Ba15A84B76f7F87568309040176167cd)),
+            configurator: VaultConfigurator(address(0x2dEc4fDC225C1f71161Ea481E23D66fEaAAE2391)),
+            depositWrapper: DepositWrapper(payable(0xdC1741f9bD33DD791942CC9435A90B0983DE8665)),
+            defaultBondStrategy: DefaultBondStrategy(address(0xc3A149b5Ca3f4A5F17F5d865c14AA9DBb570F10A)),
+            proxyAdmin: ProxyAdmin(address(0xc24891B75ef55fedC377c5e6Ec59A850b12E23ac)),
+            validator: ManagedValidator(address(0xD2635fa0635126bAfdD430b9614c0280d37a76CA)),
+            wstethAmountDeposited: 8554034897,
+            curator: DeployConstants.AMPHOR_MULTISIG,
+            lpTokenName: DeployConstants.AMPHOR_VAULT_NAME,
+            lpTokenSymbol: DeployConstants.AMPHOR_VAULT_SYMBOL
+        });
+        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
+    }
+}
+contract SolvencyTestMEVCAP is SolvencyTest {
+    constructor(){
+        setup = DeploySetupExt({
+            vault: Vault(payable(0x7a4EffD87C2f3C55CA251080b1343b605f327E3a)),
+            configurator: VaultConfigurator(address(0x84b240E99d4C473b5E3dF1256300E2871412dDfe)),
+            depositWrapper: DepositWrapper(payable(0x41A1FBEa7Ace3C3a6B66a73e96E5ED07CDB2A34d)),
+            defaultBondStrategy: DefaultBondStrategy(address(0xA0ea6d4fe369104eD4cc18951B95C3a43573C0F6)),
+            proxyAdmin: ProxyAdmin(address(0x17AC6A90eD880F9cE54bB63DAb071F2BD3FE3772)),
+            validator: ManagedValidator(address(0x6AB116ac709c89D90Cc1F8cD0323617A9996bA7c)),
+            wstethAmountDeposited: 8554034897,
+            curator: DeployConstants.P2P_MULTISIG,
+            lpTokenName: DeployConstants.P2P_VAULT_NAME,
+            lpTokenSymbol: DeployConstants.P2P_VAULT_SYMBOL
+        });
+        cumulative_deposits_wsteth = IERC20(DeployConstants.WSTETH).balanceOf(address(setup.vault)) - setup.wstethAmountDeposited;
     }
 }
